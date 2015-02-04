@@ -18,6 +18,7 @@ if [ $( lsmod | egrep -c "^rtl8821ae" ) -lt 1 ]; then
 
   if [ ! -d rtl8821 ]; then
     git clone https://github.com/kevinmullican/rtl8821.git
+    cd rtl8821 && git checkout master && cd ..
   fi
   pat=$( pwd )/$( find . -name "rtl8821*.patch" | head -1 )
   bpf=$( pwd )/$( find . -name "backport_funcs.h" | head -1 )
