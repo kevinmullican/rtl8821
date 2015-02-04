@@ -1,0 +1,186 @@
+diff --git a/drivers/net/wireless/rtlwifi/Makefile b/drivers/net/wireless/rtlwifi/Makefile
+index ad6d3c5..b63298a 100644
+--- a/drivers/net/wireless/rtlwifi/Makefile
++++ b/drivers/net/wireless/rtlwifi/Makefile
+@@ -18,17 +18,22 @@ rtl_pci-objs	:=		pci.o
+ obj-$(CONFIG_RTLWIFI_USB)	+= rtl_usb.o
+ rtl_usb-objs	:=		usb.o
+ 
+-obj-$(CONFIG_RTL8192C_COMMON)	+= rtl8192c/
+-obj-$(CONFIG_RTL8192CE)		+= rtl8192ce/
+-obj-$(CONFIG_RTL8192CU)		+= rtl8192cu/
+-obj-$(CONFIG_RTL8192SE)		+= rtl8192se/
+-obj-$(CONFIG_RTL8192DE)		+= rtl8192de/
+-obj-$(CONFIG_RTL8723AE)		+= rtl8723ae/
+-obj-$(CONFIG_RTL8723BE)		+= rtl8723be/
+-obj-$(CONFIG_RTL8188EE)		+= rtl8188ee/
++#obj-$(CONFIG_RTL8192C_COMMON)	+= rtl8192c/
++#obj-$(CONFIG_RTL8192CE)		+= rtl8192ce/
++#obj-$(CONFIG_RTL8192CU)		+= rtl8192cu/
++#obj-$(CONFIG_RTL8192SE)		+= rtl8192se/
++#obj-$(CONFIG_RTL8192DE)		+= rtl8192de/
++#obj-$(CONFIG_RTL8723AE)		+= rtl8723ae/
++#obj-$(CONFIG_RTL8723BE)		+= rtl8723be/
++#obj-$(CONFIG_RTL8188EE)		+= rtl8188ee/
+ obj-$(CONFIG_RTLBTCOEXIST)	+= btcoexist/
+-obj-$(CONFIG_RTL8723_COMMON)	+= rtl8723com/
++#obj-$(CONFIG_RTL8723_COMMON)	+= rtl8723com/
+ obj-$(CONFIG_RTL8821AE)		+= rtl8821ae/
+-obj-$(CONFIG_RTL8192EE)		+= rtl8192ee/
++#obj-$(CONFIG_RTL8192EE)		+= rtl8192ee/
+ 
+ ccflags-y += -D__CHECK_ENDIAN__
++
++KDIR := /lib/modules/$(shell uname -r)/build
++PWD := $(shell pwd)
++default:
++	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) CONFIG_RTLWIFI=m CONFIG_RTLWIFI_PCI=m CONFIG_RTLWIFI_USB=m CONFIG_RTLBTCOEXIST=m CONFIG_RTL8821AE=m modules
+diff --git a/drivers/net/wireless/rtlwifi/base.h b/drivers/net/wireless/rtlwifi/base.h
+index c6cb49c..15f585c 100644
+--- a/drivers/net/wireless/rtlwifi/base.h
++++ b/drivers/net/wireless/rtlwifi/base.h
+@@ -26,6 +26,8 @@
+ #ifndef __RTL_BASE_H__
+ #define __RTL_BASE_H__
+ 
++#include "backport_funcs.h"
++
+ enum ap_peer {
+ 	PEER_UNKNOWN = 0,
+ 	PEER_RTL = 1,
+diff --git a/drivers/net/wireless/rtlwifi/core.c b/drivers/net/wireless/rtlwifi/core.c
+index a31a127..028c203 100644
+--- a/drivers/net/wireless/rtlwifi/core.c
++++ b/drivers/net/wireless/rtlwifi/core.c
+@@ -34,6 +34,7 @@
+ #include <linux/firmware.h>
+ #include <linux/export.h>
+ #include <net/cfg80211.h>
++#include <net/mac80211.h>
+ 
+ void rtl_addr_delay(u32 addr)
+ {
+@@ -434,7 +435,7 @@ static void _rtl_add_wowlan_patterns(struct ieee80211_hw *hw,
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_mac *mac = &rtlpriv->mac80211;
+-	struct cfg80211_pkt_pattern *patterns = wow->patterns;
++	struct cfg80211_wowlan_trig_pkt_pattern *patterns = wow->patterns;
+ 	struct rtl_wow_pattern rtl_pattern;
+ 	const u8 *pattern_os, *mask_os;
+ 	u8 mask[MAX_WOL_BIT_MASK_SIZE] = {0};
+@@ -1406,9 +1407,9 @@ static int rtl_op_ampdu_action(struct ieee80211_hw *hw,
+ 	return 0;
+ }
+ 
+-static void rtl_op_sw_scan_start(struct ieee80211_hw *hw,
+-				 struct ieee80211_vif *vif,
+-				 const u8 *mac_addr)
++static void rtl_op_sw_scan_start(struct ieee80211_hw *hw)//,
++//				 struct ieee80211_vif *vif,
++//				 const u8 *mac_addr)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
+@@ -1443,8 +1444,8 @@ static void rtl_op_sw_scan_start(struct ieee80211_hw *hw,
+ 	rtlpriv->cfg->ops->scan_operation_backup(hw, SCAN_OPT_BACKUP_BAND0);
+ }
+ 
+-static void rtl_op_sw_scan_complete(struct ieee80211_hw *hw,
+-				    struct ieee80211_vif *vif)
++static void rtl_op_sw_scan_complete(struct ieee80211_hw *hw)//,
++//				    struct ieee80211_vif *vif)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
+@@ -1709,7 +1710,7 @@ static void rtl_op_rfkill_poll(struct ieee80211_hw *hw)
+  * maybe send after offchannel or rf sleep, this may cause
+  * dis-association by AP */
+ static void rtl_op_flush(struct ieee80211_hw *hw,
+-			 struct ieee80211_vif *vif,
++//			 struct ieee80211_vif *vif,
+ 			 u32 queues,
+ 			 bool drop)
+ {
+diff --git a/drivers/net/wireless/rtlwifi/rc.c b/drivers/net/wireless/rtlwifi/rc.c
+index 7863bd2..8c739d2 100644
+--- a/drivers/net/wireless/rtlwifi/rc.c
++++ b/drivers/net/wireless/rtlwifi/rc.c
+@@ -229,14 +229,14 @@ static void rtl_tx_status(void *ppriv,
+ 
+ static void rtl_rate_init(void *ppriv,
+ 			  struct ieee80211_supported_band *sband,
+-			  struct cfg80211_chan_def *chandef,
++//			  struct cfg80211_chan_def *chandef,
+ 			  struct ieee80211_sta *sta, void *priv_sta)
+ {
+ }
+ 
+ static void rtl_rate_update(void *ppriv,
+ 			    struct ieee80211_supported_band *sband,
+-			    struct cfg80211_chan_def *chandef,
++//			    struct cfg80211_chan_def *chandef,
+ 			    struct ieee80211_sta *sta, void *priv_sta,
+ 			    u32 changed)
+ {
+diff --git a/drivers/net/wireless/rtlwifi/regd.c b/drivers/net/wireless/rtlwifi/regd.c
+index 1893d01..b28f057 100644
+--- a/drivers/net/wireless/rtlwifi/regd.c
++++ b/drivers/net/wireless/rtlwifi/regd.c
+@@ -363,9 +363,9 @@ static int _rtl_regd_init_wiphy(struct rtl_regulatory *reg,
+ 
+ 	wiphy->reg_notifier = reg_notifier;
+ 
+-	wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
+-	wiphy->regulatory_flags &= ~REGULATORY_STRICT_REG;
+-	wiphy->regulatory_flags &= ~REGULATORY_DISABLE_BEACON_HINTS;
++	//wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
++	//wiphy->regulatory_flags &= ~REGULATORY_STRICT_REG;
++	//wiphy->regulatory_flags &= ~REGULATORY_DISABLE_BEACON_HINTS;
+ 	regd = _rtl_regdomain_select(reg);
+ 	wiphy_apply_custom_regulatory(wiphy, regd);
+ 	_rtl_reg_apply_radar_flags(wiphy);
+diff --git a/drivers/net/wireless/rtlwifi/regd.h b/drivers/net/wireless/rtlwifi/regd.h
+index 3bbbaaa..8194cc4 100644
+--- a/drivers/net/wireless/rtlwifi/regd.h
++++ b/drivers/net/wireless/rtlwifi/regd.h
+@@ -27,8 +27,9 @@
+ #define __RTL_REGD_H__
+ 
+ /* for kernel 3.14 , both value are changed to IEEE80211_CHAN_NO_IR*/
+-#define IEEE80211_CHAN_NO_IBSS IEEE80211_CHAN_NO_IR
+-#define IEEE80211_CHAN_PASSIVE_SCAN IEEE80211_CHAN_NO_IR
++/* but, we're compiling for 3.11, so no need */
++//#define IEEE80211_CHAN_NO_IBSS IEEE80211_CHAN_NO_IR
++//#define IEEE80211_CHAN_PASSIVE_SCAN IEEE80211_CHAN_NO_IR
+ 
+ struct country_code_to_enum_rd {
+ 	u16 countrycode;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/trx.c b/drivers/net/wireless/rtlwifi/rtl8821ae/trx.c
+index 72af4b9..0d62f5b 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/trx.c
+@@ -507,8 +507,8 @@ bool rtl8821ae_rx_query_desc(struct ieee80211_hw *hw,
+ 
+ 	if (status->rx_packet_bw == HT_CHANNEL_WIDTH_20_40)
+ 		rx_status->flag |= RX_FLAG_40MHZ;
+-	else if (status->rx_packet_bw == HT_CHANNEL_WIDTH_80)
+-		rx_status->vht_flag |= RX_VHT_FLAG_80MHZ;
++	//else if (status->rx_packet_bw == HT_CHANNEL_WIDTH_80)
++	//	rx_status->vht_flag |= RX_VHT_FLAG_80MHZ;
+ 	if (status->is_ht)
+ 		rx_status->flag |= RX_FLAG_HT;
+ 	if (status->is_vht)
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index b53d9dd..4d8e9e8 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -37,6 +37,8 @@
+ #include <linux/completion.h>
+ #include "debug.h"
+ 
++#include "backport_funcs.h"
++
+ #define	MASKBYTE0				0xff
+ #define	MASKBYTE1				0xff00
+ #define	MASKBYTE2				0xff0000
